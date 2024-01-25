@@ -1,9 +1,9 @@
 from django.http import Http404, HttpResponseNotFound
 from django.shortcuts import render, redirect
-from MainApp.forms import SnippetForm, UserRegistrationForm
+from MainApp.forms import SnippetForm, UserRegistrationForm, CommentForm
 from MainApp.models import Snippet
 from django.core.exceptions import ObjectDoesNotExist
-from django.contrib import auth
+from django.contrib import auth, messages
 from django.contrib.auth.decorators import login_required
 
 
@@ -40,6 +40,7 @@ def add_snippet_page(request):
             if request.user.is_authenticated:
                 snippet.user = request.user
                 snippet.save()
+                messages.success(request, "New snipppet saved.")
             return redirect("snippets-list")
         return render(request,'add_snippet.html', {'form': form})
 
@@ -64,6 +65,8 @@ def snippet_detail(request, snippet_id):
             'pagename': 'Просмотр сниппета',
             'snippet': snippet,
             'type': 'view',
+            'comment_form': CommentForm(),
+            'comments': snippet.comments.all()
             }
         return render(request, 'pages/snippet_detail.html', context)
 
@@ -91,6 +94,7 @@ def snippet_edit(request, snippet_id):
             snippet.creation_date = data_form["creation_date"]
             snippet.public = data_form.get("public", False)
             snippet.save()
+            messages.success(request, "Changes have saved.")
             return redirect('snippets-list')
         
 
@@ -146,3 +150,18 @@ def login(request):
 def logout(request):
     auth.logout(request)
     return redirect('home')
+
+
+def comment_add(request):
+    if request.method == "POST":
+        comment_form = CommentForm(request.POST)
+        if comment_form.is_valid():
+            snippet_id = request.POST["snippet_id"]
+            snippet = Snippet.objects.get(id=snippet_id)
+            comment = comment_form.save(commit=False)
+            comment.author = request.user
+            comment.snippet = snippet
+            comment.save()
+
+        return redirect(f'/snippet/{snippet_id}')
+    raise Http404
